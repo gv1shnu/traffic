@@ -1,0 +1,183 @@
+{
+  "scope": "Synthetic trajectories evaluate rules only. Public stills evaluate detection only. Neither measures real incident attribution accuracy.",
+  "config_version": "india-mixed-traffic-v1",
+  "synthetic": {
+    "event_precision": 1.0,
+    "event_recall": 1.0,
+    "cause_top1_accuracy": 1.0,
+    "cause_top3_accuracy": 1.0,
+    "unknown_assignment_accuracy": 1.0,
+    "event_onset_mae_seconds": 0.5999999999999996,
+    "onset_reference": "3 or more followers have physically stopped by 8.8s; detector includes its motion smoothing latency.",
+    "scenarios": [
+      {
+        "scenario": "flow",
+        "congestion": {
+          "detected": false,
+          "start_seconds": null,
+          "end_seconds": null,
+          "region": null,
+          "severity": 0,
+          "peak_queue_size": 0
+        },
+        "selected_track": null,
+        "cause": "unknown",
+        "top_three": []
+      },
+      {
+        "scenario": "queue",
+        "congestion": {
+          "detected": true,
+          "start_seconds": 9.4,
+          "end_seconds": 17.8,
+          "region": "lane_1",
+          "severity": 0.6246021220159151,
+          "peak_queue_size": 5
+        },
+        "selected_track": 1,
+        "cause": "stalled_vehicle",
+        "top_three": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "scenario": "pedestrian",
+        "congestion": {
+          "detected": true,
+          "start_seconds": 9.4,
+          "end_seconds": 17.8,
+          "region": "lane_1",
+          "severity": 0.5896816976127321,
+          "peak_queue_size": 4
+        },
+        "selected_track": 1,
+        "cause": "pedestrian_obstruction",
+        "top_three": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "scenario": "unknown",
+        "congestion": {
+          "detected": true,
+          "start_seconds": 0.2,
+          "end_seconds": 17.8,
+          "region": "lane_1",
+          "severity": 0.6246021220159151,
+          "peak_queue_size": 5
+        },
+        "selected_track": null,
+        "cause": "unknown",
+        "top_three": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "scenario": "sparse",
+        "congestion": {
+          "detected": false,
+          "start_seconds": null,
+          "end_seconds": null,
+          "region": null,
+          "severity": 0,
+          "peak_queue_size": 0
+        },
+        "selected_track": null,
+        "cause": "unknown",
+        "top_three": []
+      },
+      {
+        "scenario": "no_congestion",
+        "congestion": {
+          "detected": false,
+          "start_seconds": null,
+          "end_seconds": null,
+          "region": null,
+          "severity": 0,
+          "peak_queue_size": 0
+        },
+        "selected_track": null,
+        "cause": "unknown",
+        "top_three": []
+      }
+    ]
+  },
+  "unmeasured": {
+    "tracking_id_switches": "Requires ground-truth identities in real sequences.",
+    "plate_exact_match_accuracy": "Requires labelled plate images and full plate pipeline predictions.",
+    "plate_character_accuracy": "Requires labelled plate predictions.",
+    "evidence_quality": "Requires blinded human ratings; Laplacian sharpness alone is not accuracy.",
+    "real_cause_accuracy": "No annotated causal traffic-video benchmark supplied or evaluated."
+  },
+  "public_indian_detection": {
+    "dataset": "UVH-26 validation subset, CC-BY-4.0, Sharma et al. (IISc)",
+    "images": 4,
+    "iou_threshold": 0.5,
+    "precision": 0.5625,
+    "recall": 0.5,
+    "per_class_counts": {
+      "truck": {
+        "tp": 3,
+        "fp": 7,
+        "fn": 1
+      },
+      "bus": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "motorcycle": {
+        "tp": 11,
+        "fp": 5,
+        "fn": 10
+      },
+      "autorickshaw": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4
+      },
+      "car": {
+        "tp": 4,
+        "fp": 1,
+        "fn": 1
+      },
+      "bicycle": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 1
+      }
+    },
+    "per_image": [
+      {
+        "filename": "100341.png",
+        "ground_truth": 11,
+        "predictions": 11
+      },
+      {
+        "filename": "100173.png",
+        "ground_truth": 1,
+        "predictions": 0
+      },
+      {
+        "filename": "100130.png",
+        "ground_truth": 16,
+        "predictions": 12
+      },
+      {
+        "filename": "100296.png",
+        "ground_truth": 8,
+        "predictions": 9
+      }
+    ],
+    "inference_seconds": 0.8228033750056056,
+    "images_per_second": 4.861428770844248,
+    "model": "yolo11n.pt:sha256:0ebbc80d4a7680d1",
+    "limitations": "Tiny lexicographic sample. Fine vehicle classes collapsed; rider-inclusive two-wheeler boxes differ from COCO. Persons have no ground truth here. Autorickshaw and other classes remain unsupported and count as misses."
+  }
+}

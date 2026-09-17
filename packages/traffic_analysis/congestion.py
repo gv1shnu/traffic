@@ -80,6 +80,7 @@ def detect_congestion(
         # An already congested clip can be detected, but attribution will lack precedence.
         dense_at_start = persistence >= cfg["persistence_seconds"] * 2
         if persistence >= cfg["persistence_seconds"] and (growth or dense_at_start):
+            metric["event_confirmed"] = True
             severity = min(
                 1.0,
                 0.45 * metric["slow_fraction"]

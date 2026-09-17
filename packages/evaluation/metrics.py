@@ -23,7 +23,11 @@ def detection_counts(truth: list[dict], predictions: list[dict], threshold=0.5) 
             scores = np.array([[iou(a["bbox"], b["bbox"]) for b in pred] for a in gt])
             rows, cols = linear_sum_assignment(-scores)
             matches = sum(scores[r, c] >= threshold for r, c in zip(rows, cols, strict=True))
-        counts[label] = {"tp": int(matches), "fp": len(pred) - matches, "fn": len(gt) - matches}
+        counts[label] = {
+            "tp": int(matches),
+            "fp": int(len(pred) - matches),
+            "fn": int(len(gt) - matches),
+        }
     return dict(counts)
 
 

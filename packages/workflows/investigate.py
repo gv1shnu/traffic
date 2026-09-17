@@ -37,6 +37,7 @@ from packages.traffic_analysis.congestion import detect_congestion
 from packages.vision.detector import VEHICLES, DetectorTracker, detector
 from packages.vision.quality import quality
 from packages.vision.video import normalize, probe, read_frame, validate_header
+from packages.workflows.timeline import build_timeline
 
 logger = logging.getLogger("traffic.pipeline")
 STAGES = [
@@ -171,6 +172,10 @@ class Investigation:
                     if not ok:
                         raise ValueError("Frame decoding failed during tracking")
                     self.observations.extend(adapter.infer(frame, timestamp, index))
+                    if len(self.observations) > settings().max_observations:
+                        raise RuntimeError(
+                            "Observation budget exceeded. Use a shorter clip or lower inference FPS."
+                        )
                     next_sample += 1 / min(fps, settings().inference_fps)
                     self.progress(
                         "detect_and_track", min(0.99, timestamp / self.meta["duration_seconds"])
@@ -392,27 +397,9 @@ class Investigation:
 
     def persist_results(self) -> None:
         tracks = summarize_tracks(self.observations)
-        timeline = []
-        if self.cause.first_relevant_timestamp is not None:
-            timeline.append(
-                {
-                    "label": "Suspected causal event",
-                    "timestamp": self.cause.first_relevant_timestamp,
-                }
-            )
-        if self.congestion.detected:
-            timeline.append(
-                {"label": "Congestion began", "timestamp": self.congestion.start_seconds}
-            )
-            if self.metrics:
-                peak = max(
-                    (m for m in self.metrics if m["region"] == self.congestion.region),
-                    key=lambda m: m["queue_size"],
-                )
-                timeline.append({"label": "Peak congestion", "timestamp": peak["timestamp"]})
-            timeline.append(
-                {"label": "Last observed congestion", "timestamp": self.congestion.end_seconds}
-            )
+        timeline = build_timeline(
+            self.observations, self.cause, self.congestion, self.metrics, self.regions, self.cfg
+        )
         best = next(
             (a for a in self.assets if a.asset_type == "subject_annotated"),
             next((a for a in self.assets if a.asset_type == "during"), None),
@@ -519,6 +506,12 @@ class Investigation:
                     job = db.get(AnalysisJob, self.job_id)
                     if job:
                         job.timings = {**job.timings, name: round(elapsed, 3)}
+                        if name == "persist_results":
+                            incident = db.scalar(
+                                select(Incident).where(Incident.analysis_id == self.job_id)
+                            )
+                            if incident:
+                                incident.report = {**incident.report, "stage_timings": job.timings}
                         db.commit()
                 logger.info(
                     json.dumps(

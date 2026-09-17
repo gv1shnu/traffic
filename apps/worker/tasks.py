@@ -1,11 +1,12 @@
 import logging
+from contextlib import contextmanager
 from datetime import timedelta
 
 from celery import Celery
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from packages.shared.config import settings
-from packages.shared.db import AnalysisJob, Session, Video, now
+from packages.shared.db import AnalysisJob, Session, Video, engine, now
 from packages.shared.storage import storage
 from packages.workflows.investigate import Cancelled, Investigation
 
@@ -21,6 +22,25 @@ celery.conf.update(
 )
 
 
+@contextmanager
+def exclusive_job(job_id: str):
+    # PostgreSQL session locks release automatically if a worker process dies.
+    if engine.dialect.name != "postgresql":
+        yield True
+        return
+    with engine.connect() as connection:
+        acquired = connection.scalar(
+            text("SELECT pg_try_advisory_lock(hashtext(:job))"), {"job": job_id}
+        )
+        try:
+            yield bool(acquired)
+        finally:
+            if acquired:
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(hashtext(:job))"), {"job": job_id}
+                )
+
+
 @celery.task(name="traffic.analyze", bind=True)
 def analyze(self, job_id: str):
     with Session() as db:
@@ -28,7 +48,9 @@ def analyze(self, job_id: str):
         if job is None or job.status in {"completed", "cancelled"}:
             return
     try:
-        Investigation(job_id).run()
+        with exclusive_job(job_id) as acquired:
+            if acquired:
+                Investigation(job_id).run()
     except Cancelled:
         with Session() as db:
             job = db.get(AnalysisJob, job_id)

@@ -46,14 +46,11 @@ export function JobStatus({ job }: { job: Job }) {
             }
           >
             <span>
-              {job.timings?.[stage] !== undefined ? (
-                <Check size={13} />
-              ) : (
-                i + 1
-              )}
+              {job.timings?.[stage] !== undefined ? <Check size={13} /> : i + 1}
             </span>
             {human(stage)}
-            {(i < idx || job.status === "completed") && job.timings?.[stage] === undefined && <small>skipped</small>}
+            {(i < idx || job.status === "completed") &&
+              job.timings?.[stage] === undefined && <small>skipped</small>}
             {stage === job.stage && job.status === "processing" && (
               <LoaderCircle size={15} className="spin" />
             )}

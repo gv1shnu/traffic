@@ -143,3 +143,19 @@ def test_polygon_validation():
                 {"id": "bad", "name": "bad", "polygon": [{"x": 0, "y": 0}] * 3, "direction": [0, 0]}
             ]
         )
+
+
+def test_timeline_uses_measured_events_and_does_not_invent_clearance():
+    from packages.workflows.timeline import build_timeline
+
+    rows, event, metrics, _, cause = analyze_synthetic("queue")
+    markers = build_timeline(rows, cause, event, metrics, road(), thresholds())
+    labels = {m["label"] for m in markers}
+    assert {
+        "First follower slowdown",
+        "Suspected causal event",
+        "Congestion threshold reached",
+        "Peak congestion",
+    } <= labels
+    assert "Congestion cleared" not in labels
+    assert all(a["timestamp"] <= b["timestamp"] for a, b in zip(markers, markers[1:], strict=False))
