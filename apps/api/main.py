@@ -53,7 +53,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Traffic Cause Investigator", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="Traffic Cause Investigator",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+)
 app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -579,3 +585,26 @@ def remove(video_id: str, db: Session = Depends(get_session)):
             "JOB_ACTIVE", "Cancel processing and wait for cancellation before deleting.", 409
         )
     delete_video(db, video)
+
+
+@app.get("/docs", include_in_schema=False)
+def api_reference():
+    from html import escape
+
+    from fastapi.responses import HTMLResponse
+
+    schema = app.openapi()
+    sections = []
+    for path, methods in schema["paths"].items():
+        for method, operation in methods.items():
+            sections.append(
+                f"<details><summary><b>{escape(method.upper())}</b> <code>{escape(path)}</code> — {escape(operation.get('summary', ''))}</summary>"
+                f"<pre>{escape(json.dumps(operation, indent=2))}</pre></details>"
+            )
+    return HTMLResponse(
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Traffic API reference</title><style>body{font:15px system-ui;color:#263b37;background:#f7f8f5;max-width:1100px;margin:40px auto;padding:20px}h1{font-weight:500}details{padding:15px;margin:12px 0;background:white;border:1px solid #dce4d8;border-radius:6px}summary{cursor:pointer}b{display:inline-block;min-width:65px;color:#2e7056}pre{overflow:auto;font-size:12px}a{color:#2e7056}</style></head><body><h1>Traffic Cause Investigator API</h1><p>Generated from the current OpenAPI schema. <a href='/openapi.json'>Download OpenAPI JSON</a></p>"
+        + "".join(sections)
+        + "<details><summary>Shared schemas</summary><pre>"
+        + escape(json.dumps(schema.get("components", {}), indent=2))
+        + "</pre></details></body></html>"
+    )

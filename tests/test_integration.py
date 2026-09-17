@@ -144,3 +144,94 @@ def test_security_headers_and_origin(client):
     )
     assert result.status_code == 403
     assert client.get("/api/v1/videos/not-a-uuid").status_code == 404
+
+
+def test_completed_pipeline_is_idempotent(client, tmp_path, monkeypatch):
+    video = upload(client, tmp_path)
+    monkeypatch.setattr(analyze, "apply_async", lambda **kwargs: None)
+    job_id = client.post(f"/api/v1/videos/{video['id']}/analyze", json={}).json()["id"]
+
+    class EmptyAdapter:
+        version = "empty-test-only"
+
+        def reset(self):
+            pass
+
+        def infer(self, *args):
+            return []
+
+    Investigation(job_id, adapter=EmptyAdapter()).run()
+    before = client.get(f"/api/v1/jobs/{job_id}").json()
+    Investigation(job_id, adapter=EmptyAdapter()).run()
+    after = client.get(f"/api/v1/jobs/{job_id}").json()
+    assert before["incident_id"] == after["incident_id"]
+    assert after["status"] == "completed"
+
+
+def test_tracking_checkpoint_survives_later_stage_failure(client, tmp_path, monkeypatch):
+    video = upload(client, tmp_path)
+    monkeypatch.setattr(analyze, "apply_async", lambda **kwargs: None)
+    job_id = client.post(f"/api/v1/videos/{video['id']}/analyze", json={}).json()["id"]
+
+    class CountingAdapter:
+        version = "checkpoint-test-only"
+        calls = 0
+
+        def reset(self):
+            pass
+
+        def infer(self, *args):
+            self.calls += 1
+            return []
+
+    adapter = CountingAdapter()
+    workflow = Investigation(job_id, adapter)
+    workflow.extract_metadata()
+    workflow.detect_and_track()
+    assert adapter.calls > 0
+    count = adapter.calls
+    Investigation(job_id, adapter).run()
+    assert adapter.calls == count
+    assert client.get(f"/api/v1/jobs/{job_id}").json()["status"] == "completed"
+
+
+def test_recognized_plate_links_to_supporting_asset(client, tmp_path, monkeypatch):
+    from fixtures.synthetic import road
+    from packages.workflows import investigate
+
+    video = upload(client, tmp_path, 18)
+    monkeypatch.setattr(analyze, "apply_async", lambda **kwargs: None)
+    monkeypatch.setattr(settings(), "ocr_enabled", True)
+    client.put(
+        "/api/v1/cameras/plate-test/regions", json={"regions": [r.model_dump() for r in road()]}
+    )
+    job_id = client.post(
+        f"/api/v1/videos/{video['id']}/analyze", json={"camera_id": "plate-test"}
+    ).json()["id"]
+
+    class TestOCR:
+        version = "test-ocr-only"
+
+        def read(self, image):
+            return [
+                {
+                    "raw_text": "KA01AB1234",
+                    "confidence": 0.96,
+                    "detection_confidence": 0.95,
+                    "quality": 0.8,
+                    "bbox": [5, 5, 55, 25],
+                }
+            ]
+
+    monkeypatch.setattr(investigate, "ocr_engine", lambda: TestOCR())
+    Investigation(job_id, adapter=SyntheticAdapter()).run()
+    status = client.get(f"/api/v1/jobs/{job_id}").json()
+    report = client.get(f"/api/v1/incidents/{status['incident_id']}").json()
+    assert report["license_plate"]["status"] == "recognized"
+    assert report["license_plate"]["text"] == "KA01AB1234"
+    asset = next(
+        a for a in report["evidence"] if a["id"] == report["license_plate"]["evidence_asset_id"]
+    )
+    assert asset["asset_type"] == "plate_crop"
+    assert client.get(asset["url"]).status_code == 200
+    assert not report["fallback_subject_frame"]["required"]

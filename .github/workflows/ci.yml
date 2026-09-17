@@ -1,0 +1,47 @@
+name: Quality and Compose integration
+on: [push, pull_request]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm, cache-dependency-path: apps/web/package-lock.json}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -e '.[dev]'
+      - run: ruff check . && ruff format --check . && mypy apps/api apps/worker packages
+      - run: pytest -q
+      - run: npm --prefix apps/web ci
+      - run: npm --prefix apps/web run lint && npm --prefix apps/web test && npm --prefix apps/web run build
+      - run: python scripts/evaluate.py --output /tmp/evaluation.json
+      - uses: actions/upload-artifact@v4
+        with: {name: synthetic-evaluation, path: /tmp/evaluation.json}
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose config --quiet
+      - run: docker compose build
+      - run: docker compose run --rm worker python scripts/download_models.py --ocr
+      - run: docker compose up -d
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8080/health; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Exercise real background inference
+        run: |
+          docker compose exec -T api python scripts/generate_fixtures.py
+          docker compose exec -T api python scripts/smoke_http.py --base http://api:8000 --video storage/fixtures/no_congestion.mp4
+      - if: always()
+        run: docker compose logs --no-color > /tmp/compose.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: compose-log, path: /tmp/compose.log}
+      - if: always()
+        run: docker compose down -v

@@ -5,6 +5,7 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY apps/__init__.py apps/__init__.py
 COPY packages/ packages/
+COPY fixtures/ fixtures/
 RUN pip install '.[vision]'
 COPY . .
 RUN useradd --uid 10001 --create-home traffic && mkdir -p /data /models && chown -R traffic:traffic /app /data /models
