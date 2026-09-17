@@ -161,12 +161,19 @@ class Investigation:
         index = 0
         fps = self.meta["fps"]
         next_sample = 0.0
+        last_timestamp = -1.0
         try:
             while True:
                 ok = cap.grab()
                 if not ok:
                     break
-                timestamp = index / fps
+                # Use the frame's real presentation time so variable-frame-rate footage
+                # keeps observation timestamps aligned with evidence seeking, which also
+                # uses presentation time. Fall back to the nominal index/fps grid only
+                # when the container exposes no usable timestamp.
+                pos = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+                timestamp = pos if pos > last_timestamp else index / fps
+                last_timestamp = timestamp
                 if timestamp + 1e-6 >= next_sample:
                     ok, frame = cap.retrieve()
                     if not ok:

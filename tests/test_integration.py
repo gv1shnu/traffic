@@ -195,6 +195,99 @@ def test_tracking_checkpoint_survives_later_stage_failure(client, tmp_path, monk
     assert client.get(f"/api/v1/jobs/{job_id}").json()["status"] == "completed"
 
 
+def make_vfr_video(path):
+    """A genuinely variable-frame-rate clip: alternating short/long frame durations."""
+    import subprocess
+
+    frame = path.parent / "vfr_frame.png"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=gray:s=320x240:d=1",
+            "-frames:v",
+            "1",
+            str(frame),
+        ],
+        check=True,
+    )
+    listing = path.parent / "vfr_list.txt"
+    lines = []
+    for _ in range(10):
+        lines += [f"file '{frame.name}'", "duration 0.1", f"file '{frame.name}'", "duration 0.9"]
+    lines.append(f"file '{frame.name}'")
+    listing.write_text("\n".join(lines))
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-v",
+            "error",
+            "-f",
+            "concat",
+            "-i",
+            str(listing),
+            "-fps_mode",
+            "vfr",
+            "-pix_fmt",
+            "yuv420p",
+            str(path),
+        ],
+        check=True,
+    )
+
+
+def test_detect_and_track_uses_real_frame_timestamps(client, tmp_path, monkeypatch):
+    # Regression: observation timestamps must follow real presentation time, not a
+    # uniform index/avg-fps grid, or variable-frame-rate footage misaligns with the
+    # presentation-time seeking used for evidence and motion timing.
+    import cv2
+
+    source = tmp_path / "vfr.mp4"
+    make_vfr_video(source)
+    with source.open("rb") as f:
+        video = client.post("/api/v1/videos", files={"file": ("vfr.mp4", f, "video/mp4")}).json()
+    monkeypatch.setattr(analyze, "apply_async", lambda **kwargs: None)
+    job_id = client.post(f"/api/v1/videos/{video['id']}/analyze", json={}).json()["id"]
+
+    seen: list[float] = []
+
+    class RecordingAdapter:
+        version = "recording-test-only"
+
+        def reset(self):
+            pass
+
+        def infer(self, frame, timestamp, index):
+            seen.append(timestamp)
+            return []
+
+    workflow = Investigation(job_id, adapter=RecordingAdapter())
+    workflow.extract_metadata()
+    workflow.detect_and_track()
+
+    cap = cv2.VideoCapture(str(workflow.normalized))
+    real = []
+    while cap.grab():
+        real.append(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0)
+    cap.release()
+
+    assert seen, "expected at least one sampled frame"
+    assert seen == sorted(seen), "sampled timestamps must be monotonic"
+    # Every sampled timestamp lands on an actual decodable frame time.
+    for ts in seen:
+        assert min(abs(ts - r) for r in real) < 0.03, (ts, real[:6])
+    # The variable gaps are preserved rather than flattened onto a 1/avg-fps grid.
+    avg_fps = workflow.meta["fps"]
+    uniform = [i / avg_fps for i in range(len(seen))]
+    assert any(abs(ts - u) > 0.1 for ts, u in zip(seen, uniform, strict=False)), (seen, uniform)
+
+
 def test_recognized_plate_links_to_supporting_asset(client, tmp_path, monkeypatch):
     from fixtures.synthetic import road
     from packages.workflows import investigate
