@@ -4,7 +4,7 @@ Development verification used Python 3.12, Node, FFmpeg, local PostgreSQL, Redis
 
 | Check | Result |
 |---|---|
-| Backend tests | 36 passed |
+| Backend tests | 37 passed |
 | Frontend tests | 8 passed |
 | Ruff lint and formatting | Passed |
 | mypy (API, worker, packages) | Passed |
@@ -26,5 +26,12 @@ The native infrastructure smoke measured an actual asynchronous job through HTTP
 Separate backend tests inject synthetic observations and OCR only inside test code to exercise known cause selection, plate acceptance/rejection, evidence assets, ambiguity, errors, review corrections and cleanup. Production never selects these adapters.
 
 The public still-image evaluation used real YOLO inference. Four images yielded 56.25% precision and 50% recall at IoU 0.5 under the documented class mapping. This sample is too small and narrow for field-performance claims. No real Indian plate, temporal identity or cause-attribution benchmark was evaluated.
+
+Observation timestamps are taken from each frame's real presentation time during
+decode rather than a uniform index/average-FPS grid. This keeps variable-frame-rate
+footage aligned with the presentation-time seeking used for evidence, motion timing
+and congestion onset/end. A regression test builds a genuine VFR clip, asserts the
+sampled timestamps land on actual frame times and preserve the variable gaps, and
+fails on the previous logic; constant-frame-rate behavior is unchanged.
 
 One upstream Starlette/AnyIO deprecation warning was emitted during pytest; no tests failed.
