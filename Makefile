@@ -1,4 +1,4 @@
-.PHONY: install models fixtures test lint format build evaluate simulate up down
+.PHONY: install models fixtures test lint format build evaluate simulate previews up down
 install:
 	uv sync --extra dev --extra vision
 	npm --prefix apps/web ci
@@ -23,6 +23,8 @@ evaluate:
 	uv run python scripts/evaluate.py
 simulate:
 	uv run python scripts/simulate.py
+previews:
+	uv run python scripts/render_previews.py
 up:
 	docker compose up --build -d
 down:

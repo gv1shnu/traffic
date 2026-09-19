@@ -8,6 +8,25 @@ Built with Indian mixed traffic in mind: configurable road regions and direction
 
 ![Investigation workspace](docs/screenshots/workspace.png)
 
+## Reasoning-layer previews
+
+Annotated illustrations of the congestion and cause-attribution logic on labelled
+**simulated** scenarios (boxes coloured by motion state — green moving, amber slowing,
+red stopped — with the configured incident region and the suspected subject). These
+are synthetic kinematic examples of the reasoning, **not** real footage or an accuracy
+benchmark. Regenerate with `make previews` (`scripts/render_previews.py`).
+
+| Stalled autorickshaw → `stalled_vehicle` | Pedestrian in lane → `pedestrian_obstruction` |
+|---|---|
+| ![Stalled autorickshaw](docs/previews/stalled_autorickshaw.gif) | ![Pedestrian obstruction](docs/previews/pedestrian_obstruction.gif) |
+| **Signal queue → `unknown` (no subject blamed)** | **Free flow → no congestion** |
+| ![Signal queue](docs/previews/red_light_queue.gif) | ![Free flow](docs/previews/free_flow.gif) |
+
+The signal-queue and free-flow previews show the system's conservative behaviour: it
+detects the queue but refuses to blame a subject when there is no attributable cause,
+and reports no congestion under free flow. See [docs/evaluation.md](docs/evaluation.md)
+and the machine-readable [docs/simulation-evaluation.json](docs/simulation-evaluation.json).
+
 ## What works
 
 - Validated MP4/MOV/MKV/AVI uploads; streamed storage, real upload progress, recent investigations.
