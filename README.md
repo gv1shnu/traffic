@@ -8,6 +8,25 @@ Built with Indian mixed traffic in mind: configurable road regions and direction
 
 ![Investigation workspace](docs/screenshots/workspace.png)
 
+## Live app walkthrough
+
+Real captures of the running application (native Postgres/Redis/Celery + real YOLO11n /
+ByteTrack inference). The demo clip is a **public Bengaluru still repeated and labelled
+in-frame** as `NOT MOTION FOOTAGE`, so it exercises genuine detection but correctly
+reports *no sustained congestion* (a still has no motion). It detects 19 real subjects
+— cars, motorcycles, trucks, people.
+
+| End-to-end workflow | Truthful stage progress |
+|---|---|
+| ![Upload, configure, process, results](docs/previews/app_workflow.gif) | ![Live processing stages](docs/previews/app_processing.gif) |
+
+Results page — real track overlays, the `unknown` assessment, evidence, and the human-review controls:
+
+![Results walkthrough](docs/previews/app_results.gif)
+
+The generic COCO detector does not yet recognise autorickshaws (visible in the clip) as
+a distinct class — one of the documented gaps under **Known limitations**.
+
 ## Reasoning-layer previews
 
 Annotated illustrations of the congestion and cause-attribution logic on labelled
