@@ -1,17 +1,16 @@
 # Development handoff
 
-You are taking over an existing project: **Traffic Cause Investigator**. Continue the implementation in place, audit it critically, and bring it to the original acceptance criteria. Do not restart from scratch or stop at an architecture proposal.
+Engineering handoff for **Traffic Cause Investigator**: architecture, verification record, known gaps and the plan for reaching the original acceptance criteria. Current branch state and next steps are in [`development-status.md`](development-status.md).
 
-## 1. User intent and working rules
+## 1. Goals and working rules
 
-The user wants a complete, portfolio-quality browser application for investigating why traffic congestion happened, with Indian traffic as the primary context. The original instructions are preserved in **`docs/project-brief.md`**. Read that file before deciding what “complete” means.
+The goal is a complete, portfolio-quality browser application for investigating why traffic congestion happened, with Indian traffic as the primary context. The original instructions are preserved in **`docs/project-brief.md`**. Read that file before deciding what “complete” means.
 
-Additional user requirements:
+Working rules:
 
 - Use Git version control.
-- Do not put your name, another assistant's name, or assistant attribution in commit messages.
-- Work end to end and run the application; do not merely provide plans.
-- Fetch necessary datasets from public sources yourself, respecting their terms and retaining attribution.
+- Verify changes by running the application end to end.
+- Fetch datasets from public sources, respecting their terms and retaining attribution.
 - Keep Indian mixed traffic central: motorcycles, scooters, autorickshaws, pedestrians, animals, heterogeneous vehicle sizes, occlusion and non-lane-disciplined movement.
 - Do not invent detections, plates, incident timestamps, confidence values or evaluation metrics. Synthetic adapters belong only in tests. Never silently substitute them into production.
 - Return `unknown` when cause evidence is insufficient. Use “suspected traffic-causing subject” or “likely cause,” never guilt or enforcement language.
@@ -34,29 +33,9 @@ The reviewer should receive:
 
 The application is decision support, not autonomous enforcement. Retain the visible disclaimer from the original brief.
 
-## 3. Exact repository state at handoff
+## 3. Repository state
 
-Working directory:
-
-```text
-/Users/skillmaxxing/Dev/traffic
-```
-
-Current branch:
-
-```text
-master
-```
-
-There is one existing commit:
-
-```text
-e9e858b Build asynchronous traffic investigation application with evidence and review
-```
-
-**Important: substantial later work is present but uncommitted.** Do not discard it, reset to HEAD, or assume untracked files are disposable. At handoff, modified files include the Dockerfile, API, Nginx config, processing UI, worker tasks, evaluation metrics, settings, congestion/pipeline code and tests. Untracked work includes README, documentation, CI, Makefile, evaluation/download/smoke scripts, timeline module, additional tests, `uv.lock`, and this handoff.
-
-Start with `git status --short`, `git diff`, and a read of relevant untracked files. Verify the entire working tree before making a continuation checkpoint commit. Do not commit `.env`, videos, public dataset images, weights, databases, caches or virtual environments.
+The working tree described in this handoff was committed as `Checkpoint verified working tree: docs, CI, evaluation and smoke scripts`. Do not commit `.env`, videos, public dataset images, weights, databases, caches or virtual environments. The current branch and recent changes are tracked in [`development-status.md`](development-status.md).
 
 ## 4. Honest progress assessment
 
@@ -318,7 +297,7 @@ Open `http://localhost:8080`. Do not overwrite native `.env` just to configure C
 
 ### Step 1 — Establish and preserve the baseline
 
-Read the original brief and current docs, inspect Git/untracked work, rerun the existing checks and inspect the live services. Produce a concise acceptance-criteria gap checklist. Fix baseline failures before feature expansion. Commit the verified inherited working tree without assistant attribution.
+Read the original brief and current docs, inspect Git/untracked work, rerun the existing checks and inspect the live services. Produce a concise acceptance-criteria gap checklist. Fix baseline failures before feature expansion. Commit the verified inherited working tree.
 
 ### Step 2 — Verify actual deployment
 
@@ -352,8 +331,3 @@ Automate real browser tests covering success, no congestion, unknown, readable/u
 
 Re-run every required check, execute Compose end to end, update screenshots and documentation, and produce a machine-readable evaluation report separating synthetic logic checks from real data results. Commit in coherent increments. Report completed criteria, remaining blockers, exact run commands, test evidence and limitations. Do not declare full completion while unsupported automatic categories or unverified operational claims are presented as done.
 
-## 12. Your first response and immediate action
-
-Briefly summarize the inherited state and your next concrete steps, then inspect the repository and execute the baseline checks. Do not ask the user to re-explain the project, find datasets for you, or approve routine reversible implementation work. Ask only for genuinely missing information or authorization for consequential external actions.
-
-Continue from the existing code. Prioritize measurable progress and honest evidence over adding features that merely look complete.

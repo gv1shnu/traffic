@@ -1,12 +1,12 @@
 # Development status
 
-Short, current continuation notes. The original mandate and product vision are in
+Short, current development status. The original mandate and product vision are in
 [`docs/project-brief.md`](project-brief.md); the first-handoff audit is in
 [`docs/development-handoff.md`](development-handoff.md). This file is the up-to-date entry point.
 
 ## Working rules (unchanged, important)
 
-- Git version control. **No assistant/AI name or attribution in commit messages or PRs.**
+- Git version control with ordinary engineering commit messages.
 - Run things end to end; do not stop at plans. Prefer measurable progress and honest
   evidence over features that merely look complete.
 - Do not invent detections, plates, timestamps, confidence values or metrics. Synthetic
@@ -20,7 +20,7 @@ Short, current continuation notes. The original mandate and product vision are i
 ## Current branch and state
 
 - Branch: **`master`**, remote `origin`
-  (github.com/gv1shnu/traffic). Repo default branch is `main`.
+  (github.com/gv1shnu/traffic). This is the repository's default branch.
 - Baseline verified and committed; two substantive changes landed this cycle:
   1. **VFR timestamp fix** — `detect_and_track` now reads each frame's real presentation
      time (`CAP_PROP_POS_MSEC`) instead of a uniform `index/fps` grid, so
