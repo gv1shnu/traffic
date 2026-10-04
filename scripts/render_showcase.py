@@ -117,11 +117,12 @@ def main() -> None:
             cv2.fillPoly(overlay, [poly], CYAN)
             img = cv2.addWeighted(overlay, 0.12, img, 0.88, 0)
             cv2.polylines(img, [poly], True, CYAN, 1, cv2.LINE_AA)
-        for tid, track in tracks.items():
+        # Draw the suspected subject last so its box and label stay on top.
+        for tid, track in sorted(tracks.items(), key=lambda kv: kv[0] == suspect):
             o = interpolated(track, t)
             if o is None:
                 continue
-            x1, y1, x2, y2 = (int(v) for v in o.bbox)
+            bx1, by1, bx2, by2 = (int(v) for v in o.bbox)
             is_cause = tid == suspect and cause_from is not None and t >= cause_from
             if is_cause:
                 colour, thick = RED, 3
@@ -129,15 +130,15 @@ def main() -> None:
                 colour, thick = AMBER, 2
             else:
                 colour, thick = GREEN, 1
-            cv2.rectangle(img, (x1, y1), (x2, y2), colour, thick, cv2.LINE_AA)
+            cv2.rectangle(img, (bx1, by1), (bx2, by2), colour, thick, cv2.LINE_AA)
             label = f"#{tid} {o.object_type}"
-            text(img, label, (x1 + 2, max(12, y1 - 4)), 0.38, (20, 20, 20), 1, bg=colour)
+            text(img, label, (bx1 + 2, max(12, by1 - 4)), 0.38, (20, 20, 20), 1, bg=colour)
             if is_cause:
                 kind = CAUSE_LABEL.get(cause.get("type"), cause.get("type"))
                 text(
                     img,
                     f"SUSPECTED CAUSE: {kind} ({cause.get('confidence', 0):.2f})",
-                    (x1, max(30, y1 - 22)),
+                    (bx1, max(30, by1 - 22)),
                     0.5,
                     WHITE,
                     1,
@@ -239,7 +240,7 @@ def main() -> None:
     if args.gif:
         palette = folder / "palette.png"
         gif = folder / "showcase.gif"
-        filters = "fps=6,scale=640:-1:flags=lanczos"
+        filters = "fps=5,scale=480:-1:flags=lanczos"
         subprocess.run(
             [
                 "ffmpeg",
