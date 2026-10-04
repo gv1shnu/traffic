@@ -14,6 +14,22 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Explanations of failures, written after inspecting the pipeline's own metrics.
+ANALYSIS_NOTES = {
+    "pedestrian_obstruction": (
+        "Missed. A dump truck queued directly beneath the camera (239 px tall, 81% visible) "
+        "is not detected at this steep viewing angle and hides the vehicles behind it, so the "
+        "pipeline sees only one queued vehicle in the lane and cannot confirm sustained "
+        "congestion. The pedestrian itself is tracked."
+    ),
+    "red_light_queue": (
+        "No subject is blamed, which is the expected answer, but for the wrong reason: the "
+        "queue is mostly scooters and motorcycles, whose riders are detected as people while "
+        "the two-wheelers are almost never detected (about 1% recall), so too few stopped "
+        "vehicles are counted to confirm the congestion. Two-wheeler detection is the main "
+        "weakness of the generic detector here; the simple rider figure may add to it."
+    ),
+}
 DEFAULT = [
     "stalled_car",
     "stalled_autorickshaw",
@@ -71,6 +87,7 @@ def main() -> None:
                 "name": name,
                 "title": scenario["title"],
                 "note": scenario["note"],
+                "analysis_note": ANALYSIS_NOTES.get(name),
                 "video": f"media/{name}.mp4",
                 "poster": f"media/{name}.jpg",
                 "duration": gt["frames"][-1]["t"],
@@ -105,7 +122,9 @@ def main() -> None:
         totals["fn"] += det["false_negatives"]
         totals["fp"] += det["false_positives"]
         totals["switches"] += ev["tracking"]["id_switches"]
-        totals["correct"] += int(ev["cause"]["correct"])
+        totals["correct"] += int(
+            ev["cause"]["correct"] and ev["congestion"]["detected"] == ev["congestion"]["truth"]
+        )
         totals["n"] += 1
 
     summary = {

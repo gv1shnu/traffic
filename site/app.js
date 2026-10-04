@@ -53,7 +53,7 @@ function finding(s) {
   box.append(kv);
 
   if (s.alternatives && s.alternatives.length) {
-    box.append(el("h3", {}, "Ranked candidates"));
+    box.append(el("h3", {}, "Other candidates"));
     const ol = el("ol", { class: "alts" });
     for (const a of s.alternatives) ol.append(el("li", {}, `#${a.track} ${a.object_type} · ${fmt(a.confidence, 2)}`));
     box.append(ol);
@@ -63,6 +63,7 @@ function finding(s) {
   box.append(el("div", {}, truthText(s.truth)));
   const ok = ev.cause.correct && ev.congestion.detected === ev.congestion.truth;
   box.append(el("p", {}, el("span", { class: `badge ${ok ? "ok" : "bad"}` }, ok ? "Matches ground truth" : "Does not match ground truth")));
+  if (s.analysis_note) box.append(el("p", { class: "explain" }, s.analysis_note));
   const det = ev.detection;
   const kv2 = el("dl", { class: "kv" });
   kv2.append(el("dt", {}, "Detection recall"), el("dd", {}, pct(det.recall)));

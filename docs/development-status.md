@@ -31,6 +31,15 @@ Short, current development status. The original mandate and product vision are i
      `scripts/simulate.py` (metrics), `tests/test_simulation.py`, and
      `scripts/render_previews.py` (README GIFs). Report: `docs/simulation-evaluation.json`.
 
+## Rendered 3D simulation (this cycle)
+
+`packages/simulation3d`, `scripts/sim3d/`, `scripts/{render_3d,analyze_3d,render_showcase,build_site}.py`
+render labelled scenarios in Blender and run the real pipeline on them; see
+[`docs/sim3d.md`](sim3d.md). Result: 3/5 scenarios correct; two-wheeler detection (17%
+recall) and large vehicles seen from above are the main failures. Four pipeline fixes
+came out of it (cause gate placement, tracking-quality definition, occlusion-tolerant
+persistence, full-history precedence).
+
 ## How to verify (no services needed — tests use SQLite)
 
 ```sh

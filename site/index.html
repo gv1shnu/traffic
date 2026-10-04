@@ -39,7 +39,7 @@
       <div class="tabs" role="tablist" id="tabs"></div>
       <div class="stage">
         <figure class="video">
-          <video id="video" controls muted playsinline preload="metadata"></video>
+          <video id="video" controls muted autoplay loop playsinline preload="metadata"></video>
           <figcaption id="note"></figcaption>
         </figure>
         <aside class="finding" id="finding" aria-live="polite"></aside>
@@ -71,7 +71,7 @@
       <ul>
         <li>It shows the full pipeline working end to end on video with exact, independently known ground truth.</li>
         <li>It does not measure real-world accuracy. Rendered scenes are cleaner than real cameras: no rain, glare, night, compression artefacts or camera shake.</li>
-        <li>The generic COCO detector has no autorickshaw class, so autorickshaws are often missed or labelled as cars; the autorickshaw scenario shows this limitation.</li>
+        <li>The generic COCO detector has no autorickshaw class, so autorickshaws are labelled car or truck. Attribution still works in that scenario because it relies on motion and position, not the class label.</li>
         <li>Scores are heuristic evidence strength, not calibrated probabilities. The output is decision support for a human reviewer, never a basis for enforcement.</li>
       </ul>
     </section>

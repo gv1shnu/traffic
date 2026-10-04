@@ -6,6 +6,29 @@ Built with Indian mixed traffic in mind: configurable road regions and direction
 
 > This system produces probabilistic incident assessments for human review. It must not be used as the sole basis for enforcement, identification, or accusations.
 
+## Rendered 3D showcase
+
+![Stalled car: real detections, queue and suspected cause on a rendered street](docs/previews/sim3d_stalled_car.gif)
+
+Labelled scenarios are simulated (IDM car-following with Indian mixed traffic), rendered
+as fixed-CCTV video in Blender with CC BY 3D models, and analysed by the **real**
+YOLO11n + ByteTrack detector and the unmodified pipeline through its HTTP API. The
+simulation's ground truth is used only for scoring. Above, the pipeline names the
+scripted broken-down car (red) as the suspected cause, with its queued followers in amber.
+
+| Scenario | Outcome |
+|---|---|
+| Stalled car | correct subject, score 0.93 |
+| Stalled autorickshaw | correct subject, score 0.93 (labelled "truck" by the detector) |
+| Free flow | correctly no congestion |
+| Pedestrian in lane | missed: a large truck under the camera is not detected and hides the queue |
+| Signal queue | `unknown`, but only because two-wheelers in the queue were not detected |
+
+Rendered scenes are cleaner than real cameras, so this shows the system working end to
+end, not real-world accuracy. Two-wheeler detection (17% recall here) is the clearest
+gap. Details, per-class numbers and reproduction steps: [docs/sim3d.md](docs/sim3d.md).
+The static showcase site in `site/` is published by `.github/workflows/pages.yml`.
+
 ![Investigation workspace](docs/screenshots/workspace.png)
 
 ## Live app walkthrough

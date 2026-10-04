@@ -87,4 +87,47 @@ Rendering is resumable; re-running `render_3d.py` keeps finished frames.
 
 ## Results
 
-See [`docs/sim3d-evaluation.json`](sim3d-evaluation.json) and the showcase site.
+Machine-readable: [`docs/sim3d-evaluation.json`](sim3d-evaluation.json). One run per
+scenario, no re-rolls; failures are reported as they occurred.
+
+| Scenario | Congestion (truth → pipeline) | Cause | Outcome |
+|---|---|---|---|
+| `stalled_car` | yes → yes (onset 3.2 s early) | track #14, the scripted car, 0.93 | correct |
+| `stalled_autorickshaw` | yes → yes (onset 0.1 s late) | track #26, the scripted autorickshaw, 0.93 | correct |
+| `pedestrian_obstruction` | yes → **no** | none | missed |
+| `red_light_queue` | yes → **no** | none (expected `unknown`) | right answer, wrong reason |
+| `free_flow` | no → no | none | correct |
+
+Detection recall on required subjects (≥ 50% visible, ≥ 20 px, IoU ≥ 0.5) across all
+sampled frames, with sample counts:
+
+| car | autorickshaw | person | bus | truck | motorcycle |
+|---|---|---|---|---|---|
+| 90% (1278) | 84% (797) | 77% (419) | 74% (313) | 47% (285) | **17%** (886) |
+
+Overall recall 67%, precision 81%, 49 track ID switches over five clips.
+
+**What failed and why.**
+
+- *Pedestrian obstruction:* a dump truck queued directly beneath the camera (239 px
+  tall, 81% visible) is not detected at that steep viewing angle and hides the vehicles
+  behind it. The pipeline sees one queued vehicle in the lane, below the four needed to
+  confirm congestion. The pedestrian is tracked.
+- *Signal queue:* the queue is mostly scooters and motorcycles. Riders are detected as
+  people, the two-wheelers almost never, so too few stopped vehicles are counted. The
+  `unknown` answer is correct but not because the signal queue was recognised; it is
+  scored as a failure.
+- Two-wheeler detection is the clearest weakness of the generic COCO detector on Indian
+  traffic. The simple rider figure used here may make it worse than real footage, but a
+  domain-trained detector (two-wheelers, autorickshaws) remains the highest-value
+  improvement.
+
+**Pipeline fixes found with this test bed** (each with regression tests):
+
+1. The tracking-quality gate is applied when selecting a cause, so a report never names a
+   suspect below the selection threshold.
+2. Tracking quality measures track continuity and box stability instead of mean
+   detector confidence (which rejected most correctly tracked vehicles).
+3. Congestion persistence tolerates brief occlusion dropouts.
+4. Temporal precedence and follower response use each track's full history, so a subject
+   that stopped well before the confirmed onset keeps its precedence.
