@@ -159,3 +159,20 @@ def test_timeline_uses_measured_events_and_does_not_invent_clearance():
     } <= labels
     assert "Congestion cleared" not in labels
     assert all(a["timestamp"] <= b["timestamp"] for a, b in zip(markers, markers[1:], strict=False))
+
+
+def test_low_tracking_quality_cannot_report_a_suspect():
+    cfg = thresholds()
+    _, _, _, candidates, cause = analyze_synthetic("queue")
+    assert cause.suspected_track_id is not None
+    weak = [
+        candidates[0].model_copy(
+            update={"evidence_scores": {**candidates[0].evidence_scores, "tracking_quality": 0.5}}
+        ),
+        *candidates[1:],
+    ]
+    deferred = select_cause(weak, cfg)
+    # A reported suspect always clears the threshold; otherwise the outcome is unknown.
+    assert deferred.type == "unknown"
+    assert deferred.suspected_track_id is None
+    assert "tracking quality" in deferred.explanation

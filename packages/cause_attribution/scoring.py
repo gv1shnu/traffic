@@ -201,6 +201,13 @@ def select_cause(candidates: list[Candidate], cfg: dict) -> Cause:
     if not candidates or candidates[0].cause_confidence < cfg["cause_threshold"]:
         return Cause()
     top = candidates[0]
+    quality = top.evidence_scores.get("tracking_quality", 1.0)
+    min_quality = cfg.get("min_tracking_quality", 0.65)
+    if quality < min_quality:
+        # A reported suspect must clear every gate; weak tracking defers to review.
+        return Cause(
+            explanation=f"Track {top.candidate_track_id} ({top.object_type}) was the leading candidate, but its tracking quality ({quality:.2f}) is below the {min_quality:.2f} required for attribution; manual review is required."
+        )
     if (
         len(candidates) > 1
         and top.cause_confidence - candidates[1].cause_confidence < cfg["cause_margin"]
