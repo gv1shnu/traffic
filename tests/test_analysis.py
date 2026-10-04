@@ -205,3 +205,32 @@ def test_track_quality_measures_continuity_and_stability_not_confidence():
     assert track_quality(gappy) == 0.5
     jumpy = _track(times, [50, 80] * 10)
     assert track_quality(jumpy) < 0.3
+
+
+def test_brief_detection_dropout_does_not_delay_congestion_onset():
+    cfg = thresholds()
+    rows = calculate_motion(trajectories(), road(), 720, 720, cfg)
+    baseline, _ = detect_congestion(rows, road(), 720, 720, cfg)
+    assert baseline.detected
+    onset = baseline.start_seconds
+    # Occlusion hides most of the queue for two samples shortly after onset.
+    kept = {o.track_id for o in rows if o.timestamp == onset}
+    hidden = set(sorted(kept)[3:])
+    dip = [
+        o for o in rows if not (onset + 0.9 <= o.timestamp <= onset + 1.3 and o.track_id in hidden)
+    ]
+    event, _ = detect_congestion(dip, road(), 720, 720, cfg)
+    assert event.detected
+    assert abs(event.start_seconds - onset) < 0.3
+
+
+def test_precedence_uses_history_before_a_late_confirmed_onset():
+    cfg = thresholds()
+    rows, event, _, candidates, _ = analyze_synthetic("queue")
+    lead = candidates[0].candidate_track_id
+    # Confirm the same incident 9 s later than measured: the lead's motion before
+    # its stop now predates the candidate window but must still count.
+    late = event.model_copy(update={"start_seconds": event.start_seconds + 9})
+    late_candidates = rank_candidates(rows, late, road(), cfg)
+    top = next(c for c in late_candidates if c.candidate_track_id == lead)
+    assert top.evidence_scores["temporal_precedence"] == 1

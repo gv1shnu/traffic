@@ -67,14 +67,20 @@ def detect_congestion(
             and occupancy >= cfg["min_occupancy"]
         )
         metric["qualifying"] = qualifying
+        # Brief dips (a queued vehicle missed for a sample or two under occlusion)
+        # neither end an event nor restart the persistence timer.
+        tolerance = cfg.get("dropout_tolerance_seconds", 0.6)
         if not qualifying:
-            active.pop(region_id, None)
+            last = next((m["timestamp"] for m in reversed(previous) if m["qualifying"]), None)
+            if last is None or timestamp - last > tolerance:
+                active.pop(region_id, None)
             continue
         run = []
         for m in reversed(previous):
-            if not m["qualifying"]:
+            if m["qualifying"]:
+                run.append(m)
+            elif run[-1]["timestamp"] - m["timestamp"] > tolerance:
                 break
-            run.append(m)
         persistence = timestamp - run[-1]["timestamp"]
         growth = slow - baseline >= cfg["queue_growth"]
         # An already congested clip can be detected, but attribution will lack precedence.

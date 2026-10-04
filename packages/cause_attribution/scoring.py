@@ -80,9 +80,16 @@ def rank_candidates(
     if not incident.detected:
         return []
     start = incident.start_seconds or 0
+    end = (incident.end_seconds or start) + 2
     grouped: dict[int, list[Observation]] = defaultdict(list)
+    # Full track histories up to the end of the incident: when a subject stopped,
+    # whether it was moving beforehand and how followers responded can predate
+    # the confirmed onset by more than the candidate window.
+    history: dict[int, list[Observation]] = defaultdict(list)
     for o in observations:
-        if start - 8 <= o.timestamp <= (incident.end_seconds or start) + 2:
+        if o.timestamp <= end:
+            history[o.track_id].append(o)
+        if start - 8 <= o.timestamp <= end:
             grouped[o.track_id].append(o)
     region = next((r for r in regions if r.id == incident.region), None)
     direction = np.array(region.direction if region else [0, -1], dtype=float)
@@ -107,7 +114,7 @@ def rank_candidates(
             o.speed >= cfg["slow_speed"]
             and o.movement != "unmeasured"
             and o.timestamp < first.timestamp
-            for o in rows
+            for o in history[tid]
         )
         precedence = float(had_motion and stopped_at < start - 0.3)
         # A subject already queued behind an earlier downstream stop is a follower,
@@ -122,13 +129,13 @@ def rank_candidates(
                 and np.dot(center(p) - center(first), direction) > 0
                 for p in other_rows
             )
-            for other_id, other_rows in grouped.items()
+            for other_id, other_rows in history.items()
         )
         if prior_downstream:
             precedence *= 0.25
         followers = 0
         upstream_stops = []
-        for other_id, other_rows in grouped.items():
+        for other_id, other_rows in history.items():
             if other_id == tid or other_rows[0].object_type not in VEHICLES:
                 continue
             same_lane = [o for o in other_rows if o.region == incident.region]
