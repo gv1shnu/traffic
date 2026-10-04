@@ -51,13 +51,11 @@ make previews                        # regenerate docs/previews/*.gif
 
 ## Highest-value next steps (in order)
 
-1. **Attribution: lead/follower separation.** The simulator shows detection 1.0/1.0 and
-   zero false blame, but cause **top-1 ≈ 0.33**: in dense queues the immediate follower
-   scores close to the true lead subject, so the `cause_margin` gate defers clear stalls
-   to `unknown` (true subject is always in the top-3). Root cause: the `prior_downstream`
-   follower-precedence penalty in `packages/cause_attribution/scoring.py` is applied
-   inconsistently to the immediate follower. Fix it, then re-run `make simulate` and the
-   existing `tests/test_analysis.py` precedence tests to confirm gains without regressions.
+1. ~~**Attribution: lead/follower separation.**~~ Done: the follower-precedence margin now
+   catches a follower stopping one sample behind the leader, the 2D simulator's
+   car-following is lane-correct, and a shared-halt counter-evidence gate keeps signal
+   queues `unknown`. Simulator top-1 0.33 → 1.0 with zero false blame
+   (`docs/simulation-evaluation.json`; regression tests in `tests/test_simulation.py`).
 2. **Detection on real Indian data.** Fine-tune / evaluate on UVH-26 (CC BY 4.0, already
    fetched) and BMD-45 images; add an explicit label→taxonomy map incl. autorickshaw.
    No public Indian dataset has fixed-camera video with cause/timing labels, so real data

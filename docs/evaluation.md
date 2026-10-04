@@ -26,12 +26,22 @@ accuracy, top-3 recall, committed-cause precision, onset MAE, and the safety met
 
 This measures the **reasoning layer only**. Agents are kinematic boxes, so it says
 nothing about real detection recall, occlusion, tracking ID switches or plate accuracy;
-those still require real footage. Development runs show reliable detection and, notably,
-zero false blame with high committed-cause precision, but conservative top-1 attribution:
-in dense queues the immediate follower scores close to the true lead subject, so the
-margin gate defers several clear stalls to `unknown` even though the true subject is
-always present in the ranked top three. Improving lead/follower separation is the
-highest-value attribution change and is now directly measurable here.
+those still require real footage.
+
+The first harness runs showed reliable detection and zero false blame, but cause top-1 of
+only 0.33: the immediate follower scored close to the true lead subject, so the margin
+gate deferred clear stalls to `unknown`. Two defects were behind this and are now fixed.
+The follower-precedence check required a downstream stop more than 0.5 s earlier, which
+missed a follower stopping one 5 FPS sample (0.2–0.4 s) behind the leader; it now uses a
+0.1 s margin. Separately, the simulator's car-following ignored lanes, so in
+`adjacent_lane_flows` lane-1 cars braked for faster lane-2 traffic and the scenario's
+ground truth did not hold. With lane-correct kinematics, the red-light leader looked like
+a stall, so attribution also gained a counter-evidence gate: when the adjacent lanes are
+halted at the same time, a shared control such as a signal is the likelier explanation
+and confidence is capped below the selection threshold. Current results are in
+`docs/simulation-evaluation.json` (top-1 1.0, top-3 1.0, zero false blame, zero deferred
+true causes on the ten scenarios). These scenarios are small and were used to find the
+defects, so treat them as regression checks rather than an accuracy estimate.
 
 The public-data path runs the actual YOLO/ByteTrack adapter on UVH-26 validation stills and matches predicted and reference boxes by Hungarian assignment at IoU ≥ 0.5. Fine car classes are mapped to `car`, mini-bus/tempo-traveller to `bus`, light goods vehicles to `truck`, and two/three-wheelers to motorcycle/autorickshaw. Missing unsupported categories count against recall. Person precision/recall cannot be measured because UVH-26 provides vehicle labels only.
 

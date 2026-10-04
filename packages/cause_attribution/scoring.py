@@ -93,7 +93,7 @@ def rank_candidates(
             and any(
                 p.region == incident.region
                 and p.stationary_duration >= cfg["stationary_seconds"]
-                and p.timestamp - p.stationary_duration < stopped_at - 0.5
+                and p.timestamp - p.stationary_duration < stopped_at - 0.1
                 and abs(p.timestamp - first.timestamp) < 0.25
                 and np.dot(center(p) - center(first), direction) > 0
                 for p in other_rows
@@ -178,6 +178,11 @@ def rank_candidates(
         if not region:
             confidence = min(confidence, 0.59)
         explanation = f"Track {tid} ({first.object_type}) was stationary from {stopped_at:.1f}s; {followers} upstream vehicle tracks subsequently slowed or stopped. Maximum stationary duration was {max(o.stationary_duration for o in rows):.1f}s. Congestion began at {start:.1f}s. This is a suspected cause; mechanical failure cannot be verified from motion alone."
+        # Counter-evidence: when the adjacent lanes are also halted, a shared
+        # control (such as a signal) explains the queue better than this subject.
+        if len(adjacent) >= 3 and scores["counterfactual"] < 0.2:
+            confidence = min(confidence, 0.49)
+            explanation += " Adjacent lanes were also halted at the same time, which suggests a shared control such as a signal rather than this subject."
         candidates.append(
             Candidate(
                 candidate_track_id=tid,
