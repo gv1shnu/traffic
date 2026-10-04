@@ -176,3 +176,32 @@ def test_low_tracking_quality_cannot_report_a_suspect():
     assert deferred.type == "unknown"
     assert deferred.suspected_track_id is None
     assert "tracking quality" in deferred.explanation
+
+
+def _track(times, sizes, confidence=0.4):
+    from packages.shared.schemas import Observation
+
+    return [
+        Observation(
+            track_id=1,
+            object_type="car",
+            bbox=(100, 100, 100 + w, 100 + w),
+            confidence=confidence,
+            timestamp=t,
+            frame_index=i,
+        )
+        for i, (t, w) in enumerate(zip(times, sizes, strict=True))
+    ]
+
+
+def test_track_quality_measures_continuity_and_stability_not_confidence():
+    from packages.cause_attribution.scoring import track_quality
+
+    times = [i * 0.2 for i in range(20)]
+    steady = _track(times, [50] * 20, confidence=0.4)
+    # A continuous, stable track is high quality even when the detector is unsure.
+    assert track_quality(steady) == 1.0
+    gappy = _track(times[:5] + times[15:], [50] * 10)
+    assert track_quality(gappy) == 0.5
+    jumpy = _track(times, [50, 80] * 10)
+    assert track_quality(jumpy) < 0.3

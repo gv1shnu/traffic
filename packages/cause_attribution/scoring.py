@@ -35,6 +35,30 @@ class StationaryRoadUser:
 DETECTORS: list[CauseDetector] = [StationaryRoadUser()]
 
 
+def track_quality(rows: list[Observation]) -> float:
+    """How reliably a subject was tracked: continuity times box stability.
+
+    Continuity is the share of expected samples (at the track's own sampling
+    interval) in which the track was present between its first and last sighting.
+    Stability falls as the median frame-to-frame change in box area grows; a box
+    that jumps in size usually means the track latched onto a different object.
+    Detector confidence is deliberately excluded and reported separately.
+    """
+    ordered = sorted(rows, key=lambda o: o.timestamp)
+    if len(ordered) < 2:
+        return 0.0
+    steps = np.diff([o.timestamp for o in ordered])
+    step = float(np.median(steps[steps > 1e-6])) if np.any(steps > 1e-6) else 0.0
+    if step <= 0:
+        return 0.0
+    span = ordered[-1].timestamp - ordered[0].timestamp
+    continuity = min(1.0, len(ordered) / (round(span / step) + 1))
+    areas = [max(1e-6, (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1])) for o in ordered]
+    changes = [abs(b - a) / max(a, b) for a, b in zip(areas, areas[1:], strict=False)]
+    stability = float(np.clip(1 - 2 * np.median(changes), 0, 1))
+    return round(continuity * stability, 4)
+
+
 def aggregate(scores: dict[str, float], cfg: dict) -> float:
     weights = cfg["weights"]
     value = sum(weights[k] * max(0, min(1, scores.get(k, 0))) for k in weights) / sum(
@@ -172,7 +196,8 @@ def rank_candidates(
             "queue_propagation": propagation if region else min(0.3, propagation),
             "counterfactual": sum(o.speed >= cfg["slow_speed"] for o in adjacent)
             / max(1, len(adjacent)),
-            "tracking_quality": float(np.mean([o.confidence for o in rows])),
+            "tracking_quality": track_quality(rows),
+            "detection_confidence": float(np.mean([o.confidence for o in rows])),
         }
         confidence = aggregate(scores, cfg)
         if not region:
