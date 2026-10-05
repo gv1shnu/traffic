@@ -6,7 +6,9 @@ COPY pyproject.toml ./
 COPY apps/__init__.py apps/__init__.py
 COPY packages/ packages/
 COPY fixtures/ fixtures/
-RUN pip install '.[vision]'
+# CPU wheels by default; pass a CUDA index (e.g. https://download.pytorch.org/whl/cu128) for GPU builds.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+RUN pip install --index-url "$TORCH_INDEX_URL" torch torchvision && pip install '.[vision]'
 COPY . .
 RUN useradd --uid 10001 --create-home traffic && mkdir -p /data /models && chown -R traffic:traffic /app /data /models
 USER traffic
