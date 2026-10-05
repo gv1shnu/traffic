@@ -61,20 +61,26 @@ make previews                        # regenerate docs/previews/*.gif
 - Native Postgres/Redis were not started in the last session, so the live end-to-end
   smoke is pending. Commands are in `docs/development-handoff.md` §10.
 
-## Highest-value next steps (in order)
+## Iteration closed (2026-10-05)
 
-1. ~~**Attribution: lead/follower separation.**~~ Done: the follower-precedence margin now
-   catches a follower stopping one sample behind the leader, the 2D simulator's
-   car-following is lane-correct, and a shared-halt counter-evidence gate keeps signal
-   queues `unknown`. Simulator top-1 0.33 → 1.0 with zero false blame
-   (`docs/simulation-evaluation.json`; regression tests in `tests/test_simulation.py`).
-2. **Detection on real Indian data.** Fine-tune / evaluate on UVH-26 (CC BY 4.0, already
-   fetched) and BMD-45 images; add an explicit label→taxonomy map incl. autorickshaw.
-   No public Indian dataset has fixed-camera video with cause/timing labels, so real data
-   validates perception only — the reasoning layer stays on the simulator.
-3. ~~**Deployment**: verify Docker Compose end to end.~~ Done 2026-10-05.
-4. Multiple-incident reporting, and missing automatic cause detectors (collision, lane
-   blockage, debris, flooding, signal failure) with corroboration beyond box overlap.
+Merged to `master` in gv1shnu/traffic#1: rendered 3D showcase (3/5 scenarios correct, two
+failures reported), four attribution fixes, and the static site, published at
+https://www.vishnugandarapu.in/traffic/ by the "Showcase site" workflow. Docker Compose was
+verified end to end (see above); the 2D signal-queue preview was regenerated after the
+lane-following fix; the workspace screenshot was recaptured.
+
+## Next iteration (in order)
+
+1. **Indian-traffic detector.** Train/fine-tune for two-wheelers (17% recall now), an
+   autorickshaw class, and large vehicles seen from above. Use the 3D simulator to generate
+   labelled training images alongside UVH-26 / BMD-45.
+2. **Re-run the 3D scenarios** with the new detector and compare against
+   `docs/sim3d-evaluation.json`.
+3. **More scenes:** night, rain, junction, animal, and realistic riders.
+4. **Fewer track ID switches** (49 over five clips).
+
+Still open from earlier: multiple-incident reporting, and automatic detectors for collision,
+lane blockage, debris, flooding and signal failure.
 
 ## Data landscape (verified 2026-09)
 
