@@ -123,7 +123,7 @@ Jobs snapshot thresholds and camera regions. Tracking output is atomically check
 - Motion uses displacement over approximately one second, normalized by subject box size. It is not real km/h unless calibration exists. Calibration can be supplied through the API, but the browser does not edit it.
 - Congestion combines minimum vehicle count, median movement, slow fraction, union occupancy, persistence and queue growth. Sparse stopped vehicles do not suffice.
 - Pre-existing congestion may be detected after longer persistence, but often lacks causal precedence and returns unknown.
-- Attribution combines precedence, downstream position, approximate blockage, stationary duration, follower response, upstream propagation, adjacent-region motion and track confidence.
+- Attribution combines precedence, downstream position, approximate blockage, stationary duration, follower response, upstream propagation, adjacent-region motion and tracking quality (track continuity and box stability; detector confidence is reported separately).
 - Missing precedence/follower corroboration caps scores. A subject stopped behind an earlier downstream stop is penalized as a follower.
 - Whole-road fallback caps cause confidence below the selection threshold. Draw direction-configured regions to enable meaningful attribution.
 - Similar leading candidates return unknown.

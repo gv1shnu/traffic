@@ -87,8 +87,16 @@ def _region_of(agent: Agent, regions: list[Region], incident_region: str) -> boo
 def _advance(agents: list[Agent], t: float) -> None:
     # The lane front is the smallest travel-axis position; agents move toward 0
     # and hold a safe gap behind their leader (a simple car-following rule).
-    ordered = sorted(agents, key=lambda a: a.pos)
+    # Agents only follow a leader in their own lane (same axis and lane centre).
     safe_gap = 22.0
+    lanes: dict[tuple[str, float], list[Agent]] = {}
+    for a in agents:
+        lanes.setdefault((a.axis, a.cross), []).append(a)
+    for lane in lanes.values():
+        _advance_lane(sorted(lane, key=lambda a: a.pos), t, safe_gap)
+
+
+def _advance_lane(ordered: list[Agent], t: float, safe_gap: float) -> None:
     for i, a in enumerate(ordered):
         if a.stop_at is not None and t >= a.stop_at:
             a.stalled = a.release_at is None or t < a.release_at

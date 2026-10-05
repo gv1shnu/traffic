@@ -48,3 +48,24 @@ def test_no_false_positive_on_signal_and_free_flow():
     # Free flow and a lone stop below the vehicle floor are not congestion.
     for name in ("free_flow", "sparse_stalled"):
         assert by_name[name]["predicted"]["congestion"] is False, name
+
+
+def test_immediate_follower_is_not_credited_as_the_cause():
+    report = evaluate_simulation()
+    by_name = {d["scenario"]: d for d in report["scenarios"]}
+    # The lead subject stops one sample before its immediate follower; the follower
+    # must be recognised as queued behind it rather than tie with it.
+    for name in ("stalled_car", "animal_obstruction", "lane_blockage_horizontal"):
+        assert by_name[name]["predicted"]["suspect_track"] == 1, name
+    assert report["attribution"]["cause_top1_accuracy"] == 1.0
+
+
+def test_vehicles_only_follow_leaders_in_their_own_lane():
+    scenario = next(s for s in battery() if s.name == "adjacent_lane_flows")
+    rows, _ = run(scenario)
+    # Lane 1 is free-flowing until track 1 stalls at 3 s; its vehicles must hold
+    # cruise speed (45 px/s, 9 px per sample) rather than brake for adjacent traffic.
+    for tid in (1, 2, 3):
+        track = [o for o in rows if o.track_id == tid and 2.0 <= o.timestamp <= 2.8]
+        steps = [a.bbox[1] - b.bbox[1] for a, b in zip(track, track[1:], strict=False)]
+        assert min(steps) > 8.0, (tid, steps)

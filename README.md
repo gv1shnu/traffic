@@ -6,6 +6,29 @@ Built with Indian mixed traffic in mind: configurable road regions and direction
 
 > This system produces probabilistic incident assessments for human review. It must not be used as the sole basis for enforcement, identification, or accusations.
 
+## Rendered 3D showcase
+
+![Stalled car: real detections, queue and suspected cause on a rendered street](docs/previews/sim3d_stalled_car.gif)
+
+Labelled scenarios are simulated (IDM car-following with Indian mixed traffic), rendered
+as fixed-CCTV video in Blender with CC BY 3D models, and analysed by the **real**
+YOLO11n + ByteTrack detector and the unmodified pipeline through its HTTP API. The
+simulation's ground truth is used only for scoring. Above, the pipeline names the
+scripted broken-down car (red) as the suspected cause, with its queued followers in amber.
+
+| Scenario | Outcome |
+|---|---|
+| Stalled car | correct subject, score 0.93 |
+| Stalled autorickshaw | correct subject, score 0.93 (labelled "truck" by the detector) |
+| Free flow | correctly no congestion |
+| Pedestrian in lane | missed: a large truck under the camera is not detected and hides the queue |
+| Signal queue | `unknown`, but only because two-wheelers in the queue were not detected |
+
+Rendered scenes are cleaner than real cameras, so this shows the system working end to
+end, not real-world accuracy. Two-wheeler detection (17% recall here) is the clearest
+gap. Details, per-class numbers and reproduction steps: [docs/sim3d.md](docs/sim3d.md).
+The static showcase site in `site/` is published by `.github/workflows/pages.yml`.
+
 ![Investigation workspace](docs/screenshots/workspace.png)
 
 ## Live app walkthrough
@@ -87,7 +110,7 @@ docker compose down              # keep media and database volumes
 
 The `migrate` service applies Alembic migrations before API/worker startup. The scheduler runs retention hourly. `MAX_UPLOAD_MB` must remain within Nginx's `client_max_body_size` (251 MB including multipart overhead by default); update both for a larger upload ceiling. `.env.docker` is ignored by Git.
 
-**Validation boundary:** Docker was not available on the development host, so Compose execution was not tested there. The same API, PostgreSQL, Redis, Celery, FFmpeg and actual inference path was exercised natively. A dedicated GitHub Actions job builds Compose and runs a real upload-to-report smoke test; its remote result is not claimed until that workflow runs.
+**Validation boundary:** Compose was verified end to end on 2026-10-05 on an Apple Silicon host (Colima, Docker 29.5, Compose 5.5): `config`, `build`, model download, `up -d`, `/health` and `/ready` through port 8080, fixture generation and the HTTP smoke test, which uploaded a clip and completed a real YOLO11n/ByteTrack analysis in the Celery worker. The GitHub Actions `compose` job runs the same sequence on Linux x86-64 and passes. The smoke clip is synthetic, so this verifies the deployment path, not detection quality.
 
 ## Native development
 
@@ -138,7 +161,7 @@ Then run the API, worker and frontend commands above. These native service comma
 
 ### CPU / GPU
 
-CPU is the default and was exercised. Set `DEVICE=auto` for automatic PyTorch device selection, or `DEVICE=cuda:0` for a CUDA installation. On Linux with NVIDIA Container Toolkit, add `gpus: all` to the worker in a Compose override and install a CUDA-compatible PyTorch build. GPU execution and memory behavior were not tested here; use concurrency 1 until measured. Models load once per worker. There is no fabricated completion-time estimate.
+CPU is the default and was exercised. Set `DEVICE=auto` for automatic PyTorch device selection, or `DEVICE=cuda:0` for a CUDA installation. On Linux with NVIDIA Container Toolkit, add `gpus: all` to the worker in a Compose override and build with a CUDA PyTorch index, e.g. `docker compose build --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128` (the image installs CPU wheels by default). GPU execution and memory behavior were not tested here; use concurrency 1 until measured. Models load once per worker. There is no fabricated completion-time estimate.
 
 ## Configuration
 
@@ -238,7 +261,7 @@ uv run python scripts/evaluate.py --indian-sample storage/datasets/uvh26 \
 
 The committed [evaluation report](docs/evaluation-results.json) contains deterministic rule results and actual YOLO inference on four public UVH-26 Indian CCTV stills. The generic model achieved **56.25% detection precision and 50% recall at IoU 0.5** on that tiny, nonrepresentative sample. Unsupported autorickshaws are counted as misses. This is diagnostic evidence for fine-tuning, not a production benchmark. Source attribution and retrieval details are in [data sources](docs/data-sources.md).
 
-Final local verification: **36 backend tests and 8 frontend tests passed**, together with Ruff, mypy, ESLint, TypeScript and the production build. See [verification details](docs/verification.md).
+Final local verification: **51 backend tests and 8 frontend tests passed**, together with Ruff, mypy, ESLint, TypeScript and the production build. See [verification details](docs/verification.md).
 
 Tests inject explicit synthetic adapters only inside test code. Production has no mock inference or hard-coded incident path. Frontend tests cover validation, upload progress, job state, accepted/unreadable plates and manual corrections. Backend tests cover motion, congestion, scoring, OCR consensus, quality, schema validation, media normalization, upload/report/review/delete, failures, retries and checkpoints. Native smoke testing uses real Celery, PostgreSQL, Redis and model inference.
 

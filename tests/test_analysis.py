@@ -159,3 +159,78 @@ def test_timeline_uses_measured_events_and_does_not_invent_clearance():
     } <= labels
     assert "Congestion cleared" not in labels
     assert all(a["timestamp"] <= b["timestamp"] for a, b in zip(markers, markers[1:], strict=False))
+
+
+def test_low_tracking_quality_cannot_report_a_suspect():
+    cfg = thresholds()
+    _, _, _, candidates, cause = analyze_synthetic("queue")
+    assert cause.suspected_track_id is not None
+    weak = [
+        candidates[0].model_copy(
+            update={"evidence_scores": {**candidates[0].evidence_scores, "tracking_quality": 0.5}}
+        ),
+        *candidates[1:],
+    ]
+    deferred = select_cause(weak, cfg)
+    # A reported suspect always clears the threshold; otherwise the outcome is unknown.
+    assert deferred.type == "unknown"
+    assert deferred.suspected_track_id is None
+    assert "tracking quality" in deferred.explanation
+
+
+def _track(times, sizes, confidence=0.4):
+    from packages.shared.schemas import Observation
+
+    return [
+        Observation(
+            track_id=1,
+            object_type="car",
+            bbox=(100, 100, 100 + w, 100 + w),
+            confidence=confidence,
+            timestamp=t,
+            frame_index=i,
+        )
+        for i, (t, w) in enumerate(zip(times, sizes, strict=True))
+    ]
+
+
+def test_track_quality_measures_continuity_and_stability_not_confidence():
+    from packages.cause_attribution.scoring import track_quality
+
+    times = [i * 0.2 for i in range(20)]
+    steady = _track(times, [50] * 20, confidence=0.4)
+    # A continuous, stable track is high quality even when the detector is unsure.
+    assert track_quality(steady) == 1.0
+    gappy = _track(times[:5] + times[15:], [50] * 10)
+    assert track_quality(gappy) == 0.5
+    jumpy = _track(times, [50, 80] * 10)
+    assert track_quality(jumpy) < 0.3
+
+
+def test_brief_detection_dropout_does_not_delay_congestion_onset():
+    cfg = thresholds()
+    rows = calculate_motion(trajectories(), road(), 720, 720, cfg)
+    baseline, _ = detect_congestion(rows, road(), 720, 720, cfg)
+    assert baseline.detected
+    onset = baseline.start_seconds
+    # Occlusion hides most of the queue for two samples shortly after onset.
+    kept = {o.track_id for o in rows if o.timestamp == onset}
+    hidden = set(sorted(kept)[3:])
+    dip = [
+        o for o in rows if not (onset + 0.9 <= o.timestamp <= onset + 1.3 and o.track_id in hidden)
+    ]
+    event, _ = detect_congestion(dip, road(), 720, 720, cfg)
+    assert event.detected
+    assert abs(event.start_seconds - onset) < 0.3
+
+
+def test_precedence_uses_history_before_a_late_confirmed_onset():
+    cfg = thresholds()
+    rows, event, _, candidates, _ = analyze_synthetic("queue")
+    lead = candidates[0].candidate_track_id
+    # Confirm the same incident 9 s later than measured: the lead's motion before
+    # its stop now predates the candidate window but must still count.
+    late = event.model_copy(update={"start_seconds": event.start_seconds + 9})
+    late_candidates = rank_candidates(rows, late, road(), cfg)
+    top = next(c for c in late_candidates if c.candidate_track_id == lead)
+    assert top.evidence_scores["temporal_precedence"] == 1

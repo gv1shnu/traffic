@@ -35,6 +35,30 @@ class StationaryRoadUser:
 DETECTORS: list[CauseDetector] = [StationaryRoadUser()]
 
 
+def track_quality(rows: list[Observation]) -> float:
+    """How reliably a subject was tracked: continuity times box stability.
+
+    Continuity is the share of expected samples (at the track's own sampling
+    interval) in which the track was present between its first and last sighting.
+    Stability falls as the median frame-to-frame change in box area grows; a box
+    that jumps in size usually means the track latched onto a different object.
+    Detector confidence is deliberately excluded and reported separately.
+    """
+    ordered = sorted(rows, key=lambda o: o.timestamp)
+    if len(ordered) < 2:
+        return 0.0
+    steps = np.diff([o.timestamp for o in ordered])
+    step = float(np.median(steps[steps > 1e-6])) if np.any(steps > 1e-6) else 0.0
+    if step <= 0:
+        return 0.0
+    span = ordered[-1].timestamp - ordered[0].timestamp
+    continuity = min(1.0, len(ordered) / (round(span / step) + 1))
+    areas = [max(1e-6, (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1])) for o in ordered]
+    changes = [abs(b - a) / max(a, b) for a, b in zip(areas, areas[1:], strict=False)]
+    stability = float(np.clip(1 - 2 * np.median(changes), 0, 1))
+    return round(continuity * stability, 4)
+
+
 def aggregate(scores: dict[str, float], cfg: dict) -> float:
     weights = cfg["weights"]
     value = sum(weights[k] * max(0, min(1, scores.get(k, 0))) for k in weights) / sum(
@@ -56,9 +80,16 @@ def rank_candidates(
     if not incident.detected:
         return []
     start = incident.start_seconds or 0
+    end = (incident.end_seconds or start) + 2
     grouped: dict[int, list[Observation]] = defaultdict(list)
+    # Full track histories up to the end of the incident: when a subject stopped,
+    # whether it was moving beforehand and how followers responded can predate
+    # the confirmed onset by more than the candidate window.
+    history: dict[int, list[Observation]] = defaultdict(list)
     for o in observations:
-        if start - 8 <= o.timestamp <= (incident.end_seconds or start) + 2:
+        if o.timestamp <= end:
+            history[o.track_id].append(o)
+        if start - 8 <= o.timestamp <= end:
             grouped[o.track_id].append(o)
     region = next((r for r in regions if r.id == incident.region), None)
     direction = np.array(region.direction if region else [0, -1], dtype=float)
@@ -83,7 +114,7 @@ def rank_candidates(
             o.speed >= cfg["slow_speed"]
             and o.movement != "unmeasured"
             and o.timestamp < first.timestamp
-            for o in rows
+            for o in history[tid]
         )
         precedence = float(had_motion and stopped_at < start - 0.3)
         # A subject already queued behind an earlier downstream stop is a follower,
@@ -93,18 +124,18 @@ def rank_candidates(
             and any(
                 p.region == incident.region
                 and p.stationary_duration >= cfg["stationary_seconds"]
-                and p.timestamp - p.stationary_duration < stopped_at - 0.5
+                and p.timestamp - p.stationary_duration < stopped_at - 0.1
                 and abs(p.timestamp - first.timestamp) < 0.25
                 and np.dot(center(p) - center(first), direction) > 0
                 for p in other_rows
             )
-            for other_id, other_rows in grouped.items()
+            for other_id, other_rows in history.items()
         )
         if prior_downstream:
             precedence *= 0.25
         followers = 0
         upstream_stops = []
-        for other_id, other_rows in grouped.items():
+        for other_id, other_rows in history.items():
             if other_id == tid or other_rows[0].object_type not in VEHICLES:
                 continue
             same_lane = [o for o in other_rows if o.region == incident.region]
@@ -172,12 +203,18 @@ def rank_candidates(
             "queue_propagation": propagation if region else min(0.3, propagation),
             "counterfactual": sum(o.speed >= cfg["slow_speed"] for o in adjacent)
             / max(1, len(adjacent)),
-            "tracking_quality": float(np.mean([o.confidence for o in rows])),
+            "tracking_quality": track_quality(rows),
+            "detection_confidence": float(np.mean([o.confidence for o in rows])),
         }
         confidence = aggregate(scores, cfg)
         if not region:
             confidence = min(confidence, 0.59)
         explanation = f"Track {tid} ({first.object_type}) was stationary from {stopped_at:.1f}s; {followers} upstream vehicle tracks subsequently slowed or stopped. Maximum stationary duration was {max(o.stationary_duration for o in rows):.1f}s. Congestion began at {start:.1f}s. This is a suspected cause; mechanical failure cannot be verified from motion alone."
+        # Counter-evidence: when the adjacent lanes are also halted, a shared
+        # control (such as a signal) explains the queue better than this subject.
+        if len(adjacent) >= 3 and scores["counterfactual"] < 0.2:
+            confidence = min(confidence, 0.49)
+            explanation += " Adjacent lanes were also halted at the same time, which suggests a shared control such as a signal rather than this subject."
         candidates.append(
             Candidate(
                 candidate_track_id=tid,
@@ -196,6 +233,13 @@ def select_cause(candidates: list[Candidate], cfg: dict) -> Cause:
     if not candidates or candidates[0].cause_confidence < cfg["cause_threshold"]:
         return Cause()
     top = candidates[0]
+    quality = top.evidence_scores.get("tracking_quality", 1.0)
+    min_quality = cfg.get("min_tracking_quality", 0.65)
+    if quality < min_quality:
+        # A reported suspect must clear every gate; weak tracking defers to review.
+        return Cause(
+            explanation=f"Track {top.candidate_track_id} ({top.object_type}) was the leading candidate, but its tracking quality ({quality:.2f}) is below the {min_quality:.2f} required for attribution; manual review is required."
+        )
     if (
         len(candidates) > 1
         and top.cause_confidence - candidates[1].cause_confidence < cfg["cause_margin"]

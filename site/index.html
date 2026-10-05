@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Traffic Cause Investigator</title>
+  <meta name="description" content="Computer vision that finds the vehicle that caused a traffic jam, demonstrated on rendered 3D simulations of Indian street traffic.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <span class="brand">Traffic Cause Investigator</span>
+      <nav>
+        <a href="#scenarios">Scenarios</a>
+        <a href="#how">How it works</a>
+        <a href="#scope">Scope</a>
+        <a href="https://github.com/gv1shnu/traffic">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap intro">
+      <h1>Which vehicle caused the jam?</h1>
+      <p class="lede">
+        A fixed CCTV camera watches a street. Traffic stops. This project detects and tracks every
+        road user, decides whether the congestion is sustained, and ranks which subject most plausibly
+        started it, or says <em>unknown</em> when the evidence does not support blaming anyone.
+      </p>
+      <p class="caveat">
+        The footage below is <strong>rendered 3D simulation</strong>. The boxes, track IDs, congestion
+        timing and suspected cause are produced by the real detector (YOLO11n + ByteTrack) and the
+        unmodified investigation pipeline. Ground truth from the simulation is used only to score the result.
+      </p>
+    </section>
+
+    <section class="wrap player" id="scenarios" aria-label="Scenario viewer">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="stage">
+        <figure class="video">
+          <video id="video" controls muted autoplay loop playsinline preload="metadata"></video>
+          <figcaption id="note"></figcaption>
+        </figure>
+        <aside class="finding" id="finding" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <section class="wrap metrics" aria-label="Results across scenarios">
+      <h2>Across all scenarios</h2>
+      <div class="tiles" id="tiles"></div>
+      <p class="small">
+        Detection is scored at IoU ≥ 0.5 against boxes projected from the 3D scene, for subjects at least
+        half visible (ray-cast) and at least 20 px tall, on every frame the pipeline sampled (5 FPS).
+        The full report is <a href="https://github.com/gv1shnu/traffic/blob/master/docs/sim3d-evaluation.json">docs/sim3d-evaluation.json</a>.
+      </p>
+    </section>
+
+    <section class="wrap how" id="how">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li><h3>Simulate and render</h3><p>A car-following traffic model with Indian mixed traffic drives a Blender scene of a two-lane street. A scripted event (a breakdown, a pedestrian in the lane, a red signal) is the known ground truth.</p></li>
+        <li><h3>Detect and track</h3><p>The rendered MP4 is uploaded through the app's API. YOLO11n detects cars, buses, trucks, motorcycles and people; ByteTrack links them into tracks.</p></li>
+        <li><h3>Measure congestion</h3><p>Relative movement, occupancy, slow-vehicle fraction and queue growth in the configured lane decide whether congestion is sustained and when it began.</p></li>
+        <li><h3>Attribute the cause</h3><p>Candidates are scored on precedence, position, blockage, stationary time, follower response, upstream propagation and counter-evidence such as adjacent lanes stopping at the same time.</p></li>
+      </ol>
+    </section>
+
+    <section class="wrap scope" id="scope">
+      <h2>What this does and does not show</h2>
+      <ul>
+        <li>It shows the full pipeline working end to end on video with exact, independently known ground truth.</li>
+        <li>It does not measure real-world accuracy. Rendered scenes are cleaner than real cameras: no rain, glare, night, compression artefacts or camera shake.</li>
+        <li>The generic COCO detector has no autorickshaw class, so autorickshaws are labelled car or truck. Attribution still works in that scenario because it relies on motion and position, not the class label.</li>
+        <li>Scores are heuristic evidence strength, not calibrated probabilities. The output is decision support for a human reviewer, never a basis for enforcement.</li>
+      </ul>
+    </section>
+
+    <section class="wrap credits">
+      <details>
+        <summary>3D model credits</summary>
+        <p class="small">Road users are Sketchfab models distributed through Objaverse under CC BY 4.0. Sky, textures, trees and lamps are from Poly Haven (CC0). Models were selected for realism and recognisability by a standard detector, and the renders are not intended to represent the original creators' work as anyone else's.</p>
+        <ul id="credits" class="credit-list"></ul>
+      </details>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Probabilistic incident assessments for human review. Not for enforcement, identification or accusations.</p>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
