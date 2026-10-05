@@ -45,7 +45,7 @@ persistence, full-history precedence).
 ```sh
 uv run ruff check . && uv run ruff format --check .
 uv run mypy apps/api apps/worker packages
-uv run pytest -q                     # 40 backend tests
+uv run pytest -q                     # 51 backend tests
 npm --prefix apps/web run lint && npm --prefix apps/web test && npm --prefix apps/web run build
 make simulate                        # reasoning-layer metrics
 make previews                        # regenerate docs/previews/*.gif
@@ -53,8 +53,11 @@ make previews                        # regenerate docs/previews/*.gif
 
 ## Environment blockers (as of this cycle)
 
-- **Docker is not installed** on the dev host → acceptance criterion #16 (Compose
-  end-to-end) is unverified here. Install Docker or run the native stack to close it.
+- **Docker Compose verified end to end on 2026-10-05** (Colima on Apple Silicon): build,
+  model download, `up`, `/health` + `/ready` via port 8080, and the HTTP smoke test with real
+  worker inference. Acceptance criterion #16 is closed; the CI `compose` job also passes.
+  Fixes from that run: one shared backend image instead of four identical builds, CPU
+  PyTorch wheels by default (site-packages 6.2 GB → 1.8 GB), and `/ready` proxied by nginx.
 - Native Postgres/Redis were not started in the last session, so the live end-to-end
   smoke is pending. Commands are in `docs/development-handoff.md` §10.
 
@@ -69,7 +72,7 @@ make previews                        # regenerate docs/previews/*.gif
    fetched) and BMD-45 images; add an explicit label→taxonomy map incl. autorickshaw.
    No public Indian dataset has fixed-camera video with cause/timing labels, so real data
    validates perception only — the reasoning layer stays on the simulator.
-3. **Deployment**: verify Docker Compose end to end once Docker is available.
+3. ~~**Deployment**: verify Docker Compose end to end.~~ Done 2026-10-05.
 4. Multiple-incident reporting, and missing automatic cause detectors (collision, lane
    blockage, debris, flooding, signal failure) with corroboration beyond box overlap.
 
